@@ -36,12 +36,12 @@ public class OrderService {
         if (member.getGrade().name().equals("VIP")) total = (int) (total * 0.9);
         else if (member.getGrade().name().equals("GOLD")) total = (int) (total * 0.95);
 
-        if (couponCode != null) {
-            Coupon c = couponRepository.findByCode(couponCode);
-            if (c.getType() == 1) total -= c.getAmount();
-            else if (c.getType() == 2) total = total - total * c.getRate() / 100;
+        Coupon coupon = getCoupon(couponCode);
+        if (coupon != null) {
+            if (coupon.getType() == 1) total -= coupon.getAmount();
+            else if (coupon.getType() == 2) total = total - total * coupon.getRate() / 100;
         }
-        if (total < 50000 && !member.getGrade().name().equals("VIP")) total += 3000;
+        if (requiresShippingFee(total, member, coupon)) total += 3000;
         if (LocalDate.now().getDayOfWeek() == DayOfWeek.SUNDAY) total -= 1000;
 
         PaymentClient.pay(member.getCardNo(), total);   // static 외부 호출
@@ -51,5 +51,21 @@ public class OrderService {
         }
         EmailSender.send(member.getEmail(), "주문 완료: " + total);
         return total;
+    }
+
+    private Coupon getCoupon(String couponCode) {
+        if (couponCode == null)
+            return null;
+        return couponRepository.findByCode(couponCode);
+    }
+
+    private boolean requiresShippingFee(int total, Member member, Coupon coupon) {
+        if (total >= 50000)
+            return false;
+        if (member.getGrade().name().equals("VIP"))
+            return false;
+        if (coupon != null && coupon.getType() == 3)
+            return false;
+        return true;
     }
 }
