@@ -61,6 +61,10 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.mockito:mockito-inline'
+    // Gradle과 IDE의 테스트 클래스패스에서 모두 Java 21 정적 모킹을 지원한다.
+    testImplementation 'net.bytebuddy:byte-buddy:1.14.19'
+    testImplementation 'net.bytebuddy:byte-buddy-agent:1.14.19'
     testImplementation 'io.rest-assured:rest-assured'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
