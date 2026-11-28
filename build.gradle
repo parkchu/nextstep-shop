@@ -81,6 +81,8 @@ dependencies {
 // 단위 테스트: ./gradlew test
 tasks.named('test') {
     useJUnitPlatform()
+    // Mockito static 모킹을 위해 테스트 JVM에서만 에이전트 로딩을 허용하고 CDS를 끈다.
+    jvmArgs '-XX:+EnableDynamicAgentLoading', '-Xshare:off'
 }
 
 tasks.register('acceptanceTest', Test) {
