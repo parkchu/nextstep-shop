@@ -36,23 +36,27 @@ class OrderServiceTest {
     private final OrderService orderService = new OrderService(memberRepository, productRepository, couponRepository);
 
     @Test
-    void 일요일이_아니면_골드_회원의_주문을_5퍼센트_할인된_금액으로_완료한다() {
+    void 일요일이_아니면_골드_회원의_여러_상품_주문을_5퍼센트_할인해_완료한다() {
         // given
         LocalDate monday = LocalDate.of(2026, 11, 30);
         Member member = memberRepository.save(aMember().grade(Grade.GOLD).build());
-        Product product = productRepository.save(aProduct().price(60_000).stock(10).build());
+        Product firstProduct = productRepository.save(aProduct().price(20_000).stock(10).build());
+        Product secondProduct = productRepository.save(aProduct().price(10_000).stock(8).build());
+        int expectedTotal = 66_500;
 
         try (MockedStatic<PaymentClient> payments = mockStatic(PaymentClient.class);
              MockedStatic<EmailSender> emails = mockStatic(EmailSender.class)) {
             // when
-            int orderMoney = orderOneOn(monday, member, product, null);
+            int orderMoney = orderOn(monday, member,
+                    List.of(firstProduct.getId(), secondProduct.getId()), List.of(2, 3), null);
 
             // then
-            assertThat(orderMoney).isEqualTo(57_000);
-            payments.verify(() -> PaymentClient.pay(member.getCardNo(), 57_000));
+            assertThat(orderMoney).isEqualTo(expectedTotal);
+            payments.verify(() -> PaymentClient.pay(member.getCardNo(), expectedTotal));
             payments.verifyNoMoreInteractions();
-            assertThat(productRepository.findById(product.getId()).getStock()).isEqualTo(9);
-            emails.verify(() -> EmailSender.send(member.getEmail(), "주문 완료: 57000"));
+            assertThat(productRepository.findById(firstProduct.getId()).getStock()).isEqualTo(8);
+            assertThat(productRepository.findById(secondProduct.getId()).getStock()).isEqualTo(5);
+            emails.verify(() -> EmailSender.send(member.getEmail(), "주문 완료: " + expectedTotal));
             emails.verifyNoMoreInteractions();
         }
     }
@@ -152,9 +156,14 @@ class OrderServiceTest {
     }
 
     private int orderOneOn(LocalDate orderDate, Member member, Product product, String couponCode) {
+        return orderOn(orderDate, member, List.of(product.getId()), List.of(1), couponCode);
+    }
+
+    private int orderOn(LocalDate orderDate, Member member, List<Long> productIds,
+                        List<Integer> quantities, String couponCode) {
         try (MockedStatic<LocalDate> dates = mockStatic(LocalDate.class)) {
             dates.when(LocalDate::now).thenReturn(orderDate);
-            return orderService.order(member.getId(), List.of(product.getId()), List.of(1), couponCode);
+            return orderService.order(member.getId(), productIds, quantities, couponCode);
         }
     }
 }
