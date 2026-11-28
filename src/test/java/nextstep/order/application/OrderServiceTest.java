@@ -82,11 +82,14 @@ class OrderServiceTest {
         Member member = memberRepository.save(aMember().grade(Grade.GOLD).build());
         Product product = productRepository.save(aProduct().price(60_000).build());
 
-        // when
-        int orderMoney = orderOneWithoutCouponOn(sunday, member, product);
+        try (MockedStatic<PaymentClient> ignoredPayments = mockStatic(PaymentClient.class);
+             MockedStatic<EmailSender> ignoredEmails = mockStatic(EmailSender.class)) {
+            // when
+            int orderMoney = orderOneWithoutCouponOn(sunday, member, product);
 
-        // then
-        assertThat(orderMoney).isEqualTo(56_000);
+            // then
+            assertThat(orderMoney).isEqualTo(56_000);
+        }
     }
 
     private int orderOneWithoutCouponOn(LocalDate orderDate, Member member, Product product) {
