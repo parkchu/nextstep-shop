@@ -115,6 +115,24 @@ class OrderServiceTest {
         }
     }
 
+    @Test
+    void 정률_쿠폰은_할인액의_원_미만을_버린다() {
+        // given
+        LocalDate monday = LocalDate.of(2026, 11, 30);
+        Member member = memberRepository.save(aMember().grade(Grade.NORMAL).build());
+        Product product = productRepository.save(aProduct().price(60_003).build());
+        Coupon coupon = couponRepository.save(aCoupon().rate(10).build());
+
+        try (MockedStatic<PaymentClient> ignoredPayments = mockStatic(PaymentClient.class);
+             MockedStatic<EmailSender> ignoredEmails = mockStatic(EmailSender.class)) {
+            // when
+            int orderMoney = orderOneOn(monday, member, product, coupon.getCode());
+
+            // then
+            assertThat(orderMoney).isEqualTo(54_003);
+        }
+    }
+
     private int orderOneOn(LocalDate orderDate, Member member, Product product, String couponCode) {
         try (MockedStatic<LocalDate> dates = mockStatic(LocalDate.class)) {
             dates.when(LocalDate::now).thenReturn(orderDate);
