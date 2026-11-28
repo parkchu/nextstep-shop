@@ -133,6 +133,24 @@ class OrderServiceTest {
         }
     }
 
+    @Test
+    void 무료배송_쿠폰은_5만원_미만_주문에서_배송비만_면제한다() {
+        // given
+        LocalDate monday = LocalDate.of(2026, 11, 30);
+        Member member = memberRepository.save(aMember().grade(Grade.NORMAL).build());
+        Product product = productRepository.save(aProduct().price(40_000).build());
+        Coupon coupon = couponRepository.save(aCoupon().freeShipping().build());
+
+        try (MockedStatic<PaymentClient> ignoredPayments = mockStatic(PaymentClient.class);
+             MockedStatic<EmailSender> ignoredEmails = mockStatic(EmailSender.class)) {
+            // when
+            int orderMoney = orderOneOn(monday, member, product, coupon.getCode());
+
+            // then
+            assertThat(orderMoney).isEqualTo(40_000);
+        }
+    }
+
     private int orderOneOn(LocalDate orderDate, Member member, Product product, String couponCode) {
         try (MockedStatic<LocalDate> dates = mockStatic(LocalDate.class)) {
             dates.when(LocalDate::now).thenReturn(orderDate);
