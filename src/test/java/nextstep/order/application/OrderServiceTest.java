@@ -1,5 +1,6 @@
 package nextstep.order.application;
 
+import nextstep.coupon.domain.Coupon;
 import nextstep.fake.FakeCouponRepository;
 import nextstep.fake.FakeMemberRepository;
 import nextstep.fake.FakeProductRepository;
@@ -9,11 +10,14 @@ import nextstep.order.infra.EmailSender;
 import nextstep.order.infra.PaymentClient;
 import nextstep.product.domain.Product;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.MockedStatic;
 
 import java.time.LocalDate;
 import java.util.List;
 
+import static nextstep.fixture.CouponBuilder.aCoupon;
 import static nextstep.fixture.MemberBuilder.aMember;
 import static nextstep.fixture.ProductBuilder.aProduct;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +45,7 @@ class OrderServiceTest {
         try (MockedStatic<PaymentClient> payments = mockStatic(PaymentClient.class);
              MockedStatic<EmailSender> emails = mockStatic(EmailSender.class)) {
             // when
-            int orderMoney = orderOneWithoutCouponOn(monday, member, product);
+            int orderMoney = orderOneOn(monday, member, product, null);
 
             // then
             assertThat(orderMoney).isEqualTo(57_000);
@@ -85,17 +89,36 @@ class OrderServiceTest {
         try (MockedStatic<PaymentClient> ignoredPayments = mockStatic(PaymentClient.class);
              MockedStatic<EmailSender> ignoredEmails = mockStatic(EmailSender.class)) {
             // when
-            int orderMoney = orderOneWithoutCouponOn(sunday, member, product);
+            int orderMoney = orderOneOn(sunday, member, product, null);
 
             // then
             assertThat(orderMoney).isEqualTo(56_000);
         }
     }
 
-    private int orderOneWithoutCouponOn(LocalDate orderDate, Member member, Product product) {
+    @ParameterizedTest(name = "정액 쿠폰 {0}원 적용 시 결제액은 {1}원이다")
+    @CsvSource({"8000, 52000", "7000, 50000"})
+    void 정액_쿠폰은_등급_할인_후_적용하고_할인된_금액으로_배송비를_판단한다(int discountAmount, int expectedTotal) {
+        // given
+        LocalDate monday = LocalDate.of(2026, 11, 30);
+        Member member = memberRepository.save(aMember().grade(Grade.GOLD).build());
+        Product product = productRepository.save(aProduct().price(60_000).build());
+        Coupon coupon = couponRepository.save(aCoupon().fixedAmount(discountAmount).build());
+
+        try (MockedStatic<PaymentClient> ignoredPayments = mockStatic(PaymentClient.class);
+             MockedStatic<EmailSender> ignoredEmails = mockStatic(EmailSender.class)) {
+            // when
+            int orderMoney = orderOneOn(monday, member, product, coupon.getCode());
+
+            // then
+            assertThat(orderMoney).isEqualTo(expectedTotal);
+        }
+    }
+
+    private int orderOneOn(LocalDate orderDate, Member member, Product product, String couponCode) {
         try (MockedStatic<LocalDate> dates = mockStatic(LocalDate.class)) {
             dates.when(LocalDate::now).thenReturn(orderDate);
-            return orderService.order(member.getId(), List.of(product.getId()), List.of(1), null);
+            return orderService.order(member.getId(), List.of(product.getId()), List.of(1), couponCode);
         }
     }
 }
