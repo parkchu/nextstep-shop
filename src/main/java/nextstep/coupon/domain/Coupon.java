@@ -14,13 +14,16 @@ import javax.persistence.Id;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Coupon {
 
+    private static final int FIXED_AMOUNT = 1;
+    private static final int FIXED_RATE = 2;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String code;
 
-    private int type; // 1: 정액, 2: 정률
+    private int type;
 
     private int amount;
 
@@ -31,5 +34,13 @@ public class Coupon {
         this.type = type;
         this.amount = amount;
         this.rate = rate;
+    }
+
+    public int applyDiscountTo(int subtotal) {
+        return switch (type) {
+            case FIXED_AMOUNT -> subtotal - amount;
+            case FIXED_RATE -> subtotal - subtotal * rate / 100;
+            default -> subtotal;
+        };
     }
 }

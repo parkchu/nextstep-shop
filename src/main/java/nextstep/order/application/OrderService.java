@@ -29,34 +29,28 @@ public class OrderService {
         Member member = memberRepository.findById(memberId).orElseThrow();
         int total = 0;
         for (int i = 0; i < productIds.size(); i++) {
-            Product p = productRepository.findById(productIds.get(i));
-            if (p.getStock() < quantities.get(i)) throw new RuntimeException("재고 부족");
-            total += p.getPrice() * quantities.get(i);
+            Product product = productRepository.findById(productIds.get(i));
+            int quantity = quantities.get(i);
+            product.validateStockFor(quantity);
+            total += product.subtotalFor(quantity);
         }
         if (member.getGrade().name().equals("VIP")) total = (int) (total * 0.9);
         else if (member.getGrade().name().equals("GOLD")) total = (int) (total * 0.95);
 
-        Coupon coupon = getCoupon(couponCode);
+        Coupon coupon = couponRepository.findByCode(couponCode);
         if (coupon != null) {
-            if (coupon.getType() == 1) total -= coupon.getAmount();
-            else if (coupon.getType() == 2) total = total - total * coupon.getRate() / 100;
+            total = coupon.applyDiscountTo(total);
         }
         if (requiresShippingFee(total, member, coupon)) total += 3000;
         if (LocalDate.now().getDayOfWeek() == DayOfWeek.SUNDAY) total -= 1000;
 
         PaymentClient.pay(member.getCardNo(), total);   // static 외부 호출
         for (int i = 0; i < productIds.size(); i++) {   // 재고 차감
-            Product p = productRepository.findById(productIds.get(i));
-            p.setStock(p.getStock() - quantities.get(i));
+            Product product = productRepository.findById(productIds.get(i));
+            product.decreaseStock(quantities.get(i));
         }
         EmailSender.send(member.getEmail(), "주문 완료: " + total);
         return total;
-    }
-
-    private Coupon getCoupon(String couponCode) {
-        if (couponCode == null)
-            return null;
-        return couponRepository.findByCode(couponCode);
     }
 
     private boolean requiresShippingFee(int total, Member member, Coupon coupon) {

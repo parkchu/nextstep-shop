@@ -30,7 +30,17 @@ public class Product {
         this.stock = stock;
     }
 
-    public void setStock(int stock) {
-        this.stock = stock;
+    public void validateStockFor(int quantity) {
+        if (stock < quantity) {
+            throw new RuntimeException("재고 부족");
+        }
+    }
+
+    public int subtotalFor(int quantity) {
+        return price * quantity;
+    }
+
+    public void decreaseStock(int quantity) {
+        stock -= quantity;
     }
 }
